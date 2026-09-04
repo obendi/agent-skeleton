@@ -1,0 +1,8 @@
+# Secrets and local configuration
+.env
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

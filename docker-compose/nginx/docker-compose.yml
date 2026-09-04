@@ -1,0 +1,48 @@
+services:
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /opt/site:/usr/share/nginx/html:ro
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+
+    # Resources
+    mem_limit: 256m
+    cpus: "0.25"
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.web.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.tls=true"
+      - "traefik.http.routers.web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
+
+      - "traefik.http.routers.web.middlewares=nginx-auth"
+      - "traefik.http.middlewares.nginx-auth.basicauth.users=${NGINX_BASIC_AUTH_USERS}"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
