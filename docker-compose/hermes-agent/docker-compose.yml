@@ -31,6 +31,13 @@ services:
     volumes:
       - hermes-data:/opt/data
 
+      # nginx' document root, read-write here and read-only there, so the agent
+      # can publish sites into it. Same path on both sides of the mount: a path
+      # the agent reports is the path you find on the host. This is the only
+      # host directory it gets — the Compose files and Traefik's dynamic config
+      # stay out of reach, so it can write content but not routing or TLS.
+      - /opt/site:/opt/site
+
     # Dedicated network: the dashboard listens on 0.0.0.0:9119, so sharing a
     # network with other backends would let them reach it directly and skip the
     # BasicAuth middleware.

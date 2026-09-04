@@ -9,8 +9,8 @@ automatic HTTPS via Let's Encrypt and basic authentication.
 |----------------|----------------------------------------|-------------------------------------------------------|
 | `traefik`      | `traefik:v3.7.12`                      | Edge proxy: routing, TLS and HTTP → HTTPS redirection |
 | `socket-proxy` | `tecnativa/docker-socket-proxy:0.3.0`  | Read-only Docker API gateway for Traefik              |
-| `web`          | `nginx:1.30.4-alpine`                  | Static website                                        |
-| `hermes`       | `nousresearch/hermes-agent`            | Hermes agent with dashboard                           |
+| `web`          | `nginx:1.30.4-alpine`                  | Static sites, one per subdirectory of `/opt/site`     |
+| `hermes`       | `nousresearch/hermes-agent`            | Hermes agent with dashboard; authors the sites        |
 
 Every image is pinned by digest, so a moved tag cannot silently change what runs.
 
@@ -52,8 +52,13 @@ independently. Traefik reaches each backend over a dedicated network.
    a variable. Do **not** escape anything in `app.env`, whose values are passed
    verbatim.
 
-3. `/opt/site` must exist and be world-readable; it is mounted read-only into
-   `web`.
+3. Create `/opt/site`, the directory both `web` and `hermes` share. nginx' worker
+   runs as the unprivileged `nginx` user, so it must be traversable and readable
+   by everyone:
+
+   ```bash
+   sudo install -d -m 755 /opt/site
+   ```
 
 4. Start the stacks:
 
@@ -65,6 +70,37 @@ independently. Traefik reaches each backend over a dedicated network.
 
 To avoid burning Let's Encrypt rate limits while testing, uncomment the ACME
 staging `caserver` line in the Traefik stack first.
+
+## Publishing sites
+
+`/opt/site` is mounted read-write into `hermes` and read-only into `web`, at the
+same path on both sides. That single shared directory is the whole publishing
+pipeline: ask the agent for a site, it writes the files, nginx serves them on the
+next request. There is no build or deploy step, and nothing to restart.
+
+Each site is a subdirectory, served at the matching URL path:
+
+| On disk                       | URL                            |
+|-------------------------------|--------------------------------|
+| `/opt/site/index.html`        | `https://<domain>/`            |
+| `/opt/site/blog/index.html`   | `https://<domain>/blog/`       |
+| `/opt/site/blog/style.css`    | `https://<domain>/blog/style.css` |
+
+nginx' stock configuration already does this, so adding a site needs no config
+change anywhere — which is the reason to prefer subdirectories over a subdomain
+per site. Subdomains would mean a `server` block, a Traefik router and a
+certificate for every new site, all of it under the agent's nose.
+
+Two things to tell the agent, because neither is obvious from inside the
+container:
+
+- **Link relatively.** A site under `/blog/` that asks for `/style.css` requests
+  the domain root and gets a 404. Use `style.css` or `/blog/style.css`.
+- **Every directory needs an `index.html`.** Directory listings are off, so a
+  directory without one returns 403, not a file list.
+
+To take a site offline, delete or rename its directory; there is no state
+anywhere else.
 
 ## Security
 
@@ -88,6 +124,13 @@ staging `caserver` line in the Traefik stack first.
 - **Network segmentation.** `web` and `hermes` are on separate networks. On a
   single shared network, anything running next to Hermes could reach
   `hermes:9119` directly and skip Traefik's authentication entirely.
+- **The agent's only writable host path is the document root.** Publishing
+  requires giving Hermes write access to something the internet reads, so the
+  mount is kept as narrow as the job allows: content only, never the Compose
+  files, Traefik's dynamic config or the Docker socket. The worst it can do to
+  this stack is serve a bad page, not change who gets routed where or what
+  certificate is presented. nginx keeps the same directory read-only, so a
+  compromised web server cannot rewrite the site it serves.
 - **Container hardening:** `no-new-privileges` and `cap_drop: ALL` on every
   container, `read_only` root filesystems on `traefik`, `web` and `hermes`, plus
   CPU, memory, PID and log limits.
@@ -103,6 +146,11 @@ staging `caserver` line in the Traefik stack first.
   of it, and it holds your API keys. If you can reach it from a fixed network or
   a VPN, uncomment `trusted-ips` in `docker-compose/traefik/dynamic/security.yml`
   and add it to the front of the router's middleware chain.
+- Hermes browses and searches the web, and it publishes to a public directory.
+  A page it reads while researching a site can try to talk it into writing
+  something else, so the Basic Auth on `web` is worth keeping while you iterate:
+  it means anything the agent puts online is visible to you before it is visible
+  to anyone else.
 - `socket-proxy` is the one container without a read-only root filesystem: its
   entrypoint renders `haproxy.cfg` next to the template it ships, so that path
   has to stay writable.
@@ -123,4 +171,5 @@ staging `caserver` line in the Traefik stack first.
 |-----------------------|-----------|-----------------------------|
 | `traefik-letsencrypt` | `traefik` | ACME certificates           |
 | `hermes-data`         | `hermes`  | Persistent data             |
+| `/opt/site` (host)    | `hermes`  | Static content (read-write) |
 | `/opt/site` (host)    | `web`     | Static content (read-only)  |

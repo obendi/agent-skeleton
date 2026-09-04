@@ -18,6 +18,9 @@ services:
       - NET_BIND_SERVICE
     pids_limit: 100
     volumes:
+      # Written by the agent, served here. One subdirectory per site, so
+      # /opt/site/blog is served at https://${DOMAIN}/blog/. Read-only: nginx
+      # never needs to write to it, and the mount is the agent's blast radius.
       - /opt/site:/usr/share/nginx/html:ro
     tmpfs:
       - /var/cache/nginx
