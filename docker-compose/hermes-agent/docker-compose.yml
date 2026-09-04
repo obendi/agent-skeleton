@@ -6,8 +6,11 @@ services:
 
     command: ["gateway", "run"]
 
+    # Only the application's own secrets. DOMAIN and HERMES_BASIC_AUTH_USERS
+    # live in .env and are used for Compose interpolation only, so the bcrypt
+    # hash is never injected into the agent's environment.
     env_file:
-      - .env
+      - app.env
 
     environment:
       HERMES_DASHBOARD: "1"
