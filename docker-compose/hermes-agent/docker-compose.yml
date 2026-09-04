@@ -20,6 +20,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    pids_limit: 500
     tmpfs:
       - /tmp
       - /run
@@ -35,6 +36,7 @@ services:
 
     # Resources
     mem_limit: 1g
+    memswap_limit: 1g
     cpus: "0.5"
 
     logging:

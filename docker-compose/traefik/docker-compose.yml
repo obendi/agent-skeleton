@@ -88,6 +88,14 @@ services:
       - --api.dashboard=false
       - --api.insecure=false
       - --log.level=INFO
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+
+      # Access logs, so failed auth attempts leave a trail. Headers are dropped
+      # to keep Authorization/Cookie values out of the logs.
+      - --accesslog=true
+      - --accesslog.format=json
+      - --accesslog.fields.headers.defaultmode=drop
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.endpoint=tcp://socket-proxy:2375
@@ -97,18 +105,38 @@ services:
       - --providers.file.watch=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+
+      # Health endpoint on a container-local entrypoint: not published, so it is
+      # not reachable from the internet.
+      - --entrypoints.ping.address=127.0.0.1:8082
       - --ping=true
-      - --ping.entrypoint=websecure
+      - --ping.entrypoint=ping
+
       - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
       - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      # Uncomment while testing to avoid hitting Let's Encrypt rate limits:
+      # - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
 
     volumes:
       - traefik-letsencrypt:/letsencrypt
       - ./dynamic:/etc/traefik/dynamic:ro
+
+    # Hardening
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # Only capability needed to bind :80 and :443
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp
+    pids_limit: 200
 
     networks:
       - socket-proxy
@@ -117,6 +145,7 @@ services:
 
     # Resources
     mem_limit: 256m
+    memswap_limit: 256m
     cpus: "0.5"
 
     logging:
@@ -126,7 +155,7 @@ services:
         max-file: "3"
 
     healthcheck:
-      test: ["CMD", "wget", "--no-check-certificate", "-q", "-O", "/dev/null", "https://localhost:443/ping"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/ping"]
       interval: 30s
       timeout: 5s
       retries: 3
