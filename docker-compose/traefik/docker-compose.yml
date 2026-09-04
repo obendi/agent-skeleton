@@ -91,6 +91,10 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.endpoint=tcp://socket-proxy:2375
+
+      # TLS options and shared middlewares (see ./dynamic)
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --ping=true
@@ -104,6 +108,7 @@ services:
 
     volumes:
       - traefik-letsencrypt:/letsencrypt
+      - ./dynamic:/etc/traefik/dynamic:ro
 
     networks:
       - socket-proxy

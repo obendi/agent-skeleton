@@ -62,7 +62,13 @@ services:
 
       - "traefik.http.services.hermes.loadbalancer.server.port=9119"
 
-      - "traefik.http.routers.hermes.middlewares=hermes-auth"
+      # Order is outermost -> innermost. Headers first so they are also applied
+      # to 401 responses, then the rate limit, so brute-force attempts are
+      # throttled before any credentials are checked. This dashboard holds API
+      # keys: if you can reach it from a fixed network or a VPN, add
+      # trusted-ips@file to the front of this chain (see
+      # ../traefik/dynamic/security.yml).
+      - "traefik.http.routers.hermes.middlewares=security-headers@file,auth-ratelimit@file,hermes-auth"
       - "traefik.http.middlewares.hermes-auth.basicauth.users=${HERMES_BASIC_AUTH_USERS}"
 
 volumes:

@@ -1,0 +1,59 @@
+# Dynamic configuration loaded by Traefik's file provider.
+# Referenced from container labels as `<name>@file`.
+
+tls:
+  options:
+    # Applied to every router that does not set its own tls.options.
+    default:
+      minVersion: VersionTLS12
+      # Only relevant for TLS 1.2; the TLS 1.3 suites are fixed by Go.
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+      curvePreferences:
+        - X25519
+        - CurveP256
+        - CurveP384
+
+http:
+  middlewares:
+    # HSTS closes the downgrade window that plain :80 -> :443 redirection leaves
+    # open on the first request.
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+        # SAMEORIGIN rather than DENY: dashboards often use same-origin frames.
+        customFrameOptionsValue: SAMEORIGIN
+        customResponseHeaders:
+          # Hide backend fingerprinting headers.
+          Server: ""
+          X-Powered-By: ""
+        # A CSP has to be tailored per app; enabling it globally would break
+        # most dashboards. Set it on individual routers instead:
+        # contentSecurityPolicy: "default-src 'self'"
+
+    # BasicAuth offers no brute-force protection on its own: credentials travel
+    # on every request and Traefik will happily verify unlimited attempts.
+    # Limits are per client IP (default sourceCriterion).
+    auth-ratelimit:
+      rateLimit:
+        average: 60
+        period: 1m
+        burst: 20
+
+    # Optional: restrict a router to known networks. Combine with (not instead
+    # of) BasicAuth, and adjust to your own ranges.
+    # trusted-ips:
+    #   ipAllowList:
+    #     sourceRange:
+    #       - 10.0.0.0/8
+    #       - 100.64.0.0/10  # Tailscale
