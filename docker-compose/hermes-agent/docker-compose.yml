@@ -27,8 +27,11 @@ services:
     volumes:
       - hermes-data:/opt/data
 
+    # Dedicated network: the dashboard listens on 0.0.0.0:9119, so sharing a
+    # network with other backends would let them reach it directly and skip the
+    # BasicAuth middleware.
     networks:
-      - proxy
+      - proxy-hermes
 
     # Resources
     mem_limit: 1g
@@ -49,6 +52,7 @@ services:
 
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy-hermes"
 
       # Dashboard
       - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
@@ -66,5 +70,5 @@ volumes:
     name: hermes-data
 
 networks:
-  proxy:
+  proxy-hermes:
     external: true

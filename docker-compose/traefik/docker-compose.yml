@@ -107,7 +107,8 @@ services:
 
     networks:
       - socket-proxy
-      - proxy
+      - proxy-web
+      - proxy-hermes
 
     # Resources
     mem_limit: 256m
@@ -136,5 +137,9 @@ networks:
     name: socket-proxy
     internal: true
 
-  proxy:
+  # One network per backend, so a compromised container cannot reach another
+  # service directly and bypass Traefik's middlewares.
+  proxy-web:
+    external: true
+  proxy-hermes:
     external: true
