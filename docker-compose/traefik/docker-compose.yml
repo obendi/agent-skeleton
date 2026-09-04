@@ -1,11 +1,88 @@
 services:
+  # Read-only Docker API proxy. Traefik never touches /var/run/docker.sock
+  # directly: mounting the socket with :ro does NOT prevent write calls to the
+  # API, so a compromised Traefik would be able to start a privileged container
+  # and take over the host. This proxy only forwards the endpoints the Docker
+  # provider needs, and blocks every POST.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0@sha256:9e4b9e7517a6b660f2cc903a19b257b1852d5b3344794e3ea334ff00ae677ac2
+    restart: unless-stopped
+
+    environment:
+      # Allowed (required by Traefik's Docker provider)
+      CONTAINERS: 1
+      NETWORKS: 1
+      EVENTS: 1
+      PING: 1
+      VERSION: 1
+      # Denied
+      POST: 0
+      BUILD: 0
+      COMMIT: 0
+      CONFIGS: 0
+      DISTRIBUTION: 0
+      EXEC: 0
+      IMAGES: 0
+      INFO: 0
+      NODES: 0
+      PLUGINS: 0
+      SECRETS: 0
+      SERVICES: 0
+      SESSION: 0
+      SWARM: 0
+      SYSTEM: 0
+      TASKS: 0
+      VOLUMES: 0
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # Hardening.
+    # No read_only here: the entrypoint renders haproxy.cfg next to the
+    # template it ships in /usr/local/etc/haproxy, so that path has to stay
+    # writable. Writes land on the container's own ephemeral layer and the only
+    # mount is the socket, itself read-only.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    tmpfs:
+      - /run
+      - /tmp
+    pids_limit: 100
+
+    # No route to the internet: this container is only reachable by Traefik.
+    networks:
+      - socket-proxy
+
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: "0.25"
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   traefik:
     # Pinned by digest. v3.3 was vulnerable to CVE-2025-47952 (URL-encoded path
     # traversal that bypasses the middleware chain, i.e. the BasicAuth in front
     # of the dashboards) and CVE-2026-41263 (BasicAuth username enumeration).
     image: traefik:v3.7.12@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf
     restart: unless-stopped
-    network_mode: host
+    depends_on:
+      - socket-proxy
+
+    # Bridge networking rather than host: Traefik reaches the API proxy over an
+    # internal network, so nothing extra is bound on the host. Published ports
+    # still preserve the client IP through DNAT.
+    ports:
+      - "80:80"
+      - "443:443"
 
     command:
       - --api.dashboard=false
@@ -13,6 +90,7 @@ services:
       - --log.level=INFO
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --ping=true
@@ -26,7 +104,10 @@ services:
 
     volumes:
       - traefik-letsencrypt:/letsencrypt
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - socket-proxy
+      - proxy
 
     # Resources
     mem_limit: 256m
@@ -48,3 +129,12 @@ services:
 volumes:
   traefik-letsencrypt:
     name: traefik-letsencrypt
+
+networks:
+  # Private to this stack, no internet access.
+  socket-proxy:
+    name: socket-proxy
+    internal: true
+
+  proxy:
+    external: true
