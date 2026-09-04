@@ -1,6 +1,9 @@
 services:
   traefik:
-    image: traefik:v3.3
+    # Pinned by digest. v3.3 was vulnerable to CVE-2025-47952 (URL-encoded path
+    # traversal that bypasses the middleware chain, i.e. the BasicAuth in front
+    # of the dashboards) and CVE-2026-41263 (BasicAuth username enumeration).
+    image: traefik:v3.7.12@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf
     restart: unless-stopped
     network_mode: host
 
