@@ -36,7 +36,11 @@ services:
         max-file: "3"
 
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      # 127.0.0.1, not localhost: read_only stops the image's
+      # 10-listen-on-ipv6-by-default.sh from adding the IPv6 listen directive,
+      # so nginx is IPv4-only while localhost resolves to ::1 first. Using
+      # localhost here leaves the container permanently unhealthy.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
