@@ -96,6 +96,7 @@ services:
       - --accesslog=true
       - --accesslog.format=json
       - --accesslog.fields.headers.defaultmode=drop
+
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.endpoint=tcp://socket-proxy:2375
@@ -103,6 +104,7 @@ services:
       # TLS options and shared middlewares (see ./dynamic)
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true
+
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
 
@@ -118,6 +120,7 @@ services:
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       # Uncomment while testing to avoid hitting Let's Encrypt rate limits:
       # - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
 
