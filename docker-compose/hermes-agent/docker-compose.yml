@@ -16,17 +16,6 @@ services:
       HERMES_DASHBOARD_HOST: "0.0.0.0"
       HERMES_DASHBOARD_PORT: "9119"
 
-    # Hardening
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    pids_limit: 500
-    tmpfs:
-      - /tmp
-      - /run
-
     volumes:
       - hermes-data:/opt/data
 
