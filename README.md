@@ -47,6 +47,8 @@ independently. Traefik reaches each backend over a dedicated network.
 
    ```bash
    sudo install -d -m 755 /opt/site
+   sudo setfacl -R -m u:10000:rwX /opt/site
+   sudo find /opt/site -type d -exec setfacl -m d:u:10000:rwx {} +
    ```
 
 4. Start the stacks:
