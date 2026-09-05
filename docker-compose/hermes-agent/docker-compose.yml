@@ -17,7 +17,7 @@ services:
       HERMES_DASHBOARD_PORT: "9119"
 
     volumes:
-      - hermes-data:/opt/data
+      - hermes-data:/opt/data:rw
 
       # nginx' document root, read-write here and read-only there, so the agent
       # can publish sites into it. Same path on both sides of the mount: a path
