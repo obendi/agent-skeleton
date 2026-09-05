@@ -58,11 +58,7 @@ services:
       - "traefik.http.routers.web.tls.certresolver=letsencrypt"
       - "traefik.http.services.web.loadbalancer.server.port=80"
 
-      # Order is outermost -> innermost. Headers first so they are also applied
-      # to 401 responses, then the rate limit, so throttling happens before any
-      # credentials are checked.
-      - "traefik.http.routers.web.middlewares=security-headers@file,auth-ratelimit@file,nginx-auth"
-      - "traefik.http.middlewares.nginx-auth.basicauth.users=${NGINX_BASIC_AUTH_USERS}"
+      - "traefik.http.routers.web.middlewares=security-headers@file"
     networks:
       - proxy-web
 

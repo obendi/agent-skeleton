@@ -6,9 +6,9 @@ services:
 
     command: ["gateway", "run"]
 
-    # Only the application's own secrets. DOMAIN and HERMES_BASIC_AUTH_USERS
-    # live in .env and are used for Compose interpolation only, so the bcrypt
-    # hash is never injected into the agent's environment.
+    # Only the application's own secrets. DOMAIN lives in .env and is used for
+    # Compose interpolation only, so it is never injected into the agent's
+    # environment.
     env_file:
       - app.env
 
@@ -39,8 +39,7 @@ services:
       - /opt/site:/opt/site
 
     # Dedicated network: the dashboard listens on 0.0.0.0:9119, so sharing a
-    # network with other backends would let them reach it directly and skip the
-    # BasicAuth middleware.
+    # network with other backends would let them reach it directly.
     networks:
       - proxy-hermes
 
@@ -76,14 +75,9 @@ services:
 
       - "traefik.http.services.hermes.loadbalancer.server.port=9119"
 
-      # Order is outermost -> innermost. Headers first so they are also applied
-      # to 401 responses, then the rate limit, so brute-force attempts are
-      # throttled before any credentials are checked. This dashboard holds API
-      # keys: if you can reach it from a fixed network or a VPN, add
-      # trusted-ips@file to the front of this chain (see
-      # ../traefik/dynamic/security.yml).
-      - "traefik.http.routers.hermes.middlewares=security-headers@file,auth-ratelimit@file,hermes-auth"
-      - "traefik.http.middlewares.hermes-auth.basicauth.users=${HERMES_BASIC_AUTH_USERS}"
+      # This dashboard holds API keys. If you only reach it from a fixed network
+      # or a VPN, add an ipAllowList middleware.
+      - "traefik.http.routers.hermes.middlewares=security-headers@file"
 
 volumes:
   hermes-data:

@@ -69,9 +69,7 @@ services:
         max-file: "3"
 
   traefik:
-    # Pinned by digest. v3.3 was vulnerable to CVE-2025-47952 (URL-encoded path
-    # traversal that bypasses the middleware chain, i.e. the BasicAuth in front
-    # of the dashboards) and CVE-2026-41263 (BasicAuth username enumeration).
+    # Pinned by digest so a moved tag cannot silently change what runs.
     image: traefik:v3.7.12@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf
     restart: unless-stopped
     depends_on:
@@ -91,8 +89,8 @@ services:
       - --global.checknewversion=false
       - --global.sendanonymoususage=false
 
-      # Access logs, so failed auth attempts leave a trail. Headers are dropped
-      # to keep Authorization/Cookie values out of the logs.
+      # Access logs leave a trail of who requested what. Headers are dropped to
+      # keep Authorization/Cookie values out of the logs.
       - --accesslog=true
       - --accesslog.format=json
       - --accesslog.fields.headers.defaultmode=drop

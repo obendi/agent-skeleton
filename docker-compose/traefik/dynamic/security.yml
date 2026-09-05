@@ -40,20 +40,3 @@ http:
         # A CSP has to be tailored per app; enabling it globally would break
         # most dashboards. Set it on individual routers instead:
         # contentSecurityPolicy: "default-src 'self'"
-
-    # BasicAuth offers no brute-force protection on its own: credentials travel
-    # on every request and Traefik will happily verify unlimited attempts.
-    # Limits are per client IP (default sourceCriterion).
-    auth-ratelimit:
-      rateLimit:
-        average: 60
-        period: 1m
-        burst: 20
-
-    # Optional: restrict a router to known networks. Combine with (not instead
-    # of) BasicAuth, and adjust to your own ranges.
-    # trusted-ips:
-    #   ipAllowList:
-    #     sourceRange:
-    #       - 10.0.0.0/8
-    #       - 100.64.0.0/10  # Tailscale

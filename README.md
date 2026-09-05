@@ -1,7 +1,7 @@
 # agent-skeleton
 
 Docker infrastructure for self-hosting services, with Traefik as reverse proxy,
-automatic HTTPS via Let's Encrypt and basic authentication.
+automatic HTTPS via Let's Encrypt.
 
 ## Services
 
@@ -38,19 +38,8 @@ independently. Traefik reaches each backend over a dedicated network.
    ```
 
    The split matters: `.env` holds only values used to interpolate the Compose
-   file (domain, Basic Auth hash) and is never injected into a container, while
-   `app.env` holds the agent's own secrets (API keys) and is. Neither is
-   versioned.
-
-   Generate Basic Auth hashes with bcrypt, not the default MD5 crypt:
-
-   ```bash
-   htpasswd -nbB <user> <password> | cut -d: -f2
-   ```
-
-   Remember to escape every `$` as `$$` in `.env`, otherwise Compose reads it as
-   a variable. Do **not** escape anything in `app.env`, whose values are passed
-   verbatim.
+   file (the domain) and is never injected into a container, while `app.env`
+   holds the agent's own secrets (API keys) and is. Neither is versioned.
 
 3. Create `/opt/site`, the directory both `web` and `hermes` share. nginx' worker
    runs as the unprivileged `nginx` user, so it must be traversable and readable
@@ -116,14 +105,9 @@ anywhere else.
   leaves open on the first request.
 - **TLS 1.2 minimum**, with an explicit cipher and curve list.
 - Automatic certificates via Let's Encrypt (HTTP challenge).
-- **Basic authentication behind a rate limit** on `web` and `hermes`. BasicAuth
-  has no brute-force protection of its own, so a `rateLimit` middleware sits in
-  front of it. Middleware order is `security-headers → rate limit → auth`, so
-  headers apply to 401 responses too and throttling happens before any
-  credential check.
 - **Network segmentation.** `web` and `hermes` are on separate networks. On a
   single shared network, anything running next to Hermes could reach
-  `hermes:9119` directly and skip Traefik's authentication entirely.
+  `hermes:9119` directly and skip the reverse proxy entirely.
 - **The agent's only writable host path is the document root.** Publishing
   requires giving Hermes write access to something the internet reads, so the
   mount is kept as narrow as the job allows: content only, never the Compose
@@ -134,23 +118,20 @@ anywhere else.
 - **Container hardening:** `no-new-privileges` and `cap_drop: ALL` on every
   container, `read_only` root filesystems on `traefik`, `web` and `hermes`, plus
   CPU, memory, PID and log limits.
-- **Access logs** in JSON with request headers dropped, so failed
-  authentication attempts are auditable without recording credentials.
+- **Access logs** in JSON with request headers dropped, so Authorization and
+  Cookie values are never recorded.
 - The Traefik dashboard and API are disabled, and `/ping` is bound to a
   container-local entrypoint that is never published.
 - Version telemetry to Traefik Labs is turned off.
 
 ### Worth knowing
 
-- Hermes' dashboard is reachable from the internet with only Basic Auth in front
-  of it, and it holds your API keys. If you can reach it from a fixed network or
-  a VPN, uncomment `trusted-ips` in `docker-compose/traefik/dynamic/security.yml`
-  and add it to the front of the router's middleware chain.
+- Hermes' dashboard is reachable from the internet with no authentication in
+  front of it, and it holds your API keys. If you can reach it from a fixed
+  network or a VPN, add an `ipAllowList` middleware to restrict it.
 - Hermes browses and searches the web, and it publishes to a public directory.
   A page it reads while researching a site can try to talk it into writing
-  something else, so the Basic Auth on `web` is worth keeping while you iterate:
-  it means anything the agent puts online is visible to you before it is visible
-  to anyone else.
+  something else, so validate published content before exposing it publicly.
 - `socket-proxy` is the one container without a read-only root filesystem: its
   entrypoint renders `haproxy.cfg` next to the template it ships, so that path
   has to stay writable.
