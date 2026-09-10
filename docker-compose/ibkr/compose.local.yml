@@ -1,0 +1,23 @@
+# Optional host access for a Node API running outside Docker.
+# Separate project: starting this does not restart the authenticated Gateway.
+name: webapp-ibkr-local
+services:
+  local-access:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:15080:8080"
+    volumes:
+      - ./nginx.local.conf:/etc/nginx/nginx.conf:ro
+    networks: [portfolio, host-access]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+networks:
+  host-access: {}
+  portfolio:
+    external: true
+    name: ibkr-portfolio

@@ -84,3 +84,13 @@ El volumen `webapp-ibkr_ibkr-state` conserva el perfil del navegador y el certif
 Comprobado localmente con Docker Desktop/Linux ARM64: build desde el ZIP oficial, arranque saludable, siete procesos activos, acceso noVNC con contraseña, formulario de login IBKR visible en Chromium sin advertencia de certificado, recreación conservando el volumen y validación de ambos Compose. El puente devuelve 401 antes del login y rechaza rutas de órdenes y POST con 403. El acceso directo al Gateway por la red Docker queda bloqueado por su lista de IP.
 
 No se ha realizado login en una cuenta IBKR, consulta de posiciones reales ni despliegue en el VPS. En un VPS x86_64 Docker construirá los paquetes para esa arquitectura; queda pendiente verificar allí el kernel y la disponibilidad de los espacios de nombres del navegador.
+
+## API de desarrollo fuera de Docker
+
+Si ejecutas la API con `npm run dev` en el host, arranca el puente local por separado para conservar la sesión del Gateway:
+
+```bash
+docker compose -f docker-compose/ibkr/compose.local.yml up -d
+```
+
+Configura `IBKR_GATEWAY_URL=http://127.0.0.1:15080/v1/api` en `apps/api/.env`, junto con `IBKR_ACCOUNT_ID` y `IBKR_OWNER_USER_ID`, y reinicia la API. El puerto 15080 solo escucha en localhost y conserva las restricciones del puente de lectura. Este Compose es exclusivo del desarrollo local; en producción usa la red privada y el override de API descritos arriba.
