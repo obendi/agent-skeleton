@@ -1,0 +1,11 @@
+# Apply alongside the existing Traefik Compose file, using its existing project name.
+services:
+  traefik:
+    networks:
+      - proxy-api
+      - proxy-app
+networks:
+  proxy-api:
+    external: true
+  proxy-app:
+    external: true

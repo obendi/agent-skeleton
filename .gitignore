@@ -10,3 +10,12 @@
 
 # Logs
 *.log
+
+# Application dependencies and build output
+node_modules/
+dist/
+coverage/
+!**/.env.example
+
+# Persistent host data (including private Hermes state)
+/data/

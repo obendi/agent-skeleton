@@ -24,7 +24,12 @@ services:
       # Written by the agent, served here. One subdirectory per site, so
       # /opt/site/blog is served at https://${DOMAIN}/blog/. Read-only: nginx
       # never needs to write to it, and the mount is the agent's blast radius.
-      - /opt/site:/usr/share/nginx/html:ro
+      - type: bind
+        source: ${SITE_ROOT:-../../data/site}
+        target: /usr/share/nginx/html
+        read_only: true
+        bind:
+          create_host_path: false
     tmpfs:
       - /var/cache/nginx
       - /var/run

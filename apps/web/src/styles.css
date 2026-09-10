@@ -1,0 +1,7 @@
+@import "tailwindcss";
+:root { font-family: ui-sans-serif, system-ui, sans-serif; color: #172b43; background: #f5f8fc; --primary: #152c45; --primary-foreground: #ffffff; --muted: #eaf0f7; --muted-foreground: #52647a; --border: #cbd5e1; }
+@theme inline { --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-border: var(--border); }
+label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .5rem; }
+input { width: 100%; border: 1px solid var(--border); border-radius: .5rem; padding: .75rem 1rem; background: white; font-size: 1rem; }
+input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.eyebrow { font-size: .75rem; letter-spacing: .14em; font-weight: 700; color: #52647a; margin-bottom: 1rem; }

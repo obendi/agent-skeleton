@@ -12,19 +12,30 @@ services:
       - app.env
 
     environment:
+      # Fixed container path; HERMES_DATA_ROOT selects only the host location.
+      HERMES_DATA_DIR: /opt/data
       HERMES_DASHBOARD: "1"
       HERMES_DASHBOARD_HOST: "0.0.0.0"
       HERMES_DASHBOARD_PORT: "9119"
 
     volumes:
-      - hermes-data:/opt/data:rw
+      # Private state: never mount this directory in nginx or inside SITE_ROOT.
+      - type: bind
+        source: ${HERMES_DATA_ROOT:-../../data/hermes}
+        target: /opt/data
+        read_only: false
+        bind:
+          create_host_path: false
 
-      # nginx' document root, read-write here and read-only there, so the agent
-      # can publish sites into it. Same path on both sides of the mount: a path
-      # the agent reports is the path you find on the host. This is the only
-      # host directory it gets — the Compose files and Traefik's dynamic config
-      # stay out of reach, so it can write content but not routing or TLS.
-      - /opt/site:/opt/site
+      # Host folder configured with SITE_ROOT, writable only by Hermes.
+      # Inside the container the publishing path remains /opt/site.
+      # Compose files, routing and TLS configuration are not mounted.
+      - type: bind
+        source: ${SITE_ROOT:-../../data/site}
+        target: /opt/site
+        read_only: false
+        bind:
+          create_host_path: false
 
     # Dedicated network: the dashboard listens on 0.0.0.0:9119, so sharing a
     # network with other backends would let them reach it directly.
@@ -57,10 +68,6 @@ services:
       # This dashboard holds API keys. If you only reach it from a fixed network
       # or a VPN, add an ipAllowList middleware.
       - "traefik.http.routers.hermes.middlewares=security-headers@file"
-
-volumes:
-  hermes-data:
-    name: hermes-data
 
 networks:
   proxy-hermes:

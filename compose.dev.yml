@@ -1,0 +1,3 @@
+# Compatibility entry point; PostgreSQL is owned by infrastructure.
+include:
+  - path: docker-compose/postgres/compose.dev.yml

@@ -1,0 +1,65 @@
+name: webapp-api
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 150
+  mem_limit: 512m
+  cpus: "1.0"
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    command: [node, apps/api/dist/migrate.js]
+    environment:
+      DATABASE_URL: postgres://webapp:${DATABASE_MIGRATION_PASSWORD:?Set DATABASE_MIGRATION_PASSWORD}@postgres:5432/webapp
+    networks: [database]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+
+  api:
+    <<: *hardening
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      TRUST_PROXY_HOPS: 1
+      APP_ORIGIN: https://app.${DOMAIN:?Set DOMAIN}
+      DATABASE_URL: postgres://webapp_app:${DATABASE_APP_PASSWORD:?Set DATABASE_APP_PASSWORD}@postgres:5432/webapp
+    networks: [proxy-api, database]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy-api
+      traefik.http.routers.app-api.rule: Host(`api.${DOMAIN}`)
+      traefik.http.routers.app-api.entrypoints: websecure
+      traefik.http.routers.app-api.tls.certresolver: letsencrypt
+      traefik.http.routers.app-api.middlewares: security-headers@file,app-api-limit
+      traefik.http.services.app-api.loadbalancer.server.port: "3000"
+      traefik.http.middlewares.app-api-limit.ratelimit.average: "20"
+      traefik.http.middlewares.app-api-limit.ratelimit.burst: "40"
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  database:
+    external: true
+    name: postgres-webapp
+  proxy-api:
+    external: true

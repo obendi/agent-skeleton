@@ -1,0 +1,53 @@
+name: webapp-frontend
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 150
+  mem_limit: 512m
+  cpus: "1.0"
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  app:
+    <<: *hardening
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_ORIGIN: https://api.${DOMAIN:?Set DOMAIN}
+    environment:
+      API_ORIGIN: https://api.${DOMAIN}
+      NGINX_ENVSUBST_FILTER: API_ORIGIN
+      NGINX_ENVSUBST_OUTPUT_DIR: /tmp/conf.d
+    entrypoint: [/bin/sh, -c]
+    command:
+      - >-
+        mkdir -p /tmp/conf.d &&
+        envsubst '$$API_ORIGIN' < /etc/nginx/templates/default.conf.template > /tmp/conf.d/default.conf &&
+        printf 'pid /tmp/nginx.pid; events {} http { include /etc/nginx/mime.types; client_body_temp_path /tmp/client_temp; proxy_temp_path /tmp/proxy_temp; fastcgi_temp_path /tmp/fastcgi_temp; uwsgi_temp_path /tmp/uwsgi_temp; scgi_temp_path /tmp/scgi_temp; include /tmp/conf.d/*.conf; }' > /tmp/nginx.conf &&
+        exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+    tmpfs: [/tmp]
+    networks: [proxy-app]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy-app
+      traefik.http.routers.application.rule: Host(`app.${DOMAIN}`)
+      traefik.http.routers.application.entrypoints: websecure
+      traefik.http.routers.application.tls.certresolver: letsencrypt
+      traefik.http.routers.application.middlewares: security-headers@file
+      traefik.http.services.application.loadbalancer.server.port: "8080"
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy-app:
+    external: true

@@ -1,0 +1,39 @@
+name: webapp-postgres
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}
+      WEBAPP_OWNER_PASSWORD: ${WEBAPP_OWNER_PASSWORD:?Set WEBAPP_OWNER_PASSWORD}
+      WEBAPP_APP_PASSWORD: ${WEBAPP_APP_PASSWORD:?Set WEBAPP_APP_PASSWORD}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-consumers.sh:/docker-entrypoint-initdb.d/10-consumers.sh:ro
+    networks: [webapp]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    pids_limit: 150
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+volumes:
+  postgres-data:
+    # External: even `compose down -v` cannot delete this volume.
+    external: true
+    name: ${POSTGRES_VOLUME_NAME:-infrastructure-postgres-data}
+networks:
+  webapp:
+    name: postgres-webapp
+    internal: true

@@ -1,0 +1,11 @@
+import { config } from './config.js';
+import { createStore } from './store.js';
+import { buildApp } from './app.js';
+const settings = config();
+const database = createStore(settings.DATABASE_URL);
+const app = await buildApp(settings, database.store);
+await database.cleanup();
+const cleanup = setInterval(() => { database.cleanup().catch(err => app.log.error({ err }, 'Session cleanup failed')); }, 60 * 60 * 1000).unref();
+app.addHook('onClose', async () => { clearInterval(cleanup); await database.close(); });
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { app.close().catch(() => process.exit(1)); });
+await app.listen({ host: '0.0.0.0', port: settings.PORT });
