@@ -1,0 +1,41 @@
+name: webapp-ibkr
+services:
+  ibkr:
+    build: .
+    restart: unless-stopped
+    # Chromium runs as a regular user with its sandbox enabled (no --no-sandbox).
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp.json
+    pids_limit: 512
+    mem_limit: 2g
+    cpus: "2.0"
+    shm_size: 256m
+    ports:
+      - "127.0.0.1:${IBKR_DESKTOP_PORT:-6080}:6080"
+    networks: [portfolio, egress]
+    volumes:
+      - ibkr-state:/state
+    secrets: [vnc_password]
+    healthcheck:
+      test: [CMD, /usr/local/bin/healthcheck.sh]
+      start_period: 60s
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+networks:
+  portfolio:
+    name: ibkr-portfolio
+    internal: true
+  egress: {}
+volumes:
+  ibkr-state: {}
+secrets:
+  vnc_password:
+    file: ./secrets/vnc_password

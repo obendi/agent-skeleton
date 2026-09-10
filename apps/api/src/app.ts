@@ -1,3 +1,4 @@
+import { getPositions, IbkrError } from './ibkr.js';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
@@ -62,6 +63,16 @@ export async function buildApp(config: Config, store: Store) {
     await store.deleteSession(digest(req.cookies[cookieName]!));
     reply.clearCookie(cookieName, cookieOptions);
     return reply.code(204).send();
+  });
+  app.get('/finance/growth', async (req, reply) => {
+    if (!config.IBKR_OWNER_USER_ID) return { status: 'not_configured' };
+    if (req.user!.id !== config.IBKR_OWNER_USER_ID) return reply.code(403).send({ message: 'Esta cartera no está vinculada a tu usuario' });
+    if (!config.IBKR_GATEWAY_URL || !config.IBKR_ACCOUNT_ID) return { status: 'not_configured' };
+    try {
+      return { status: 'connected', accountId: config.IBKR_ACCOUNT_ID, fetchedAt: new Date().toISOString(), positions: await getPositions(config.IBKR_GATEWAY_URL, config.IBKR_ACCOUNT_ID) };
+    } catch (error) {
+      return reply.code(503).send({ message: error instanceof IbkrError ? error.message : 'No se pudo conectar con Interactive Brokers. Comprueba el Gateway y vuelve a intentarlo.' });
+    }
   });
   app.get('/admin/status', { config: { role: 'admin' } }, async () => ({ status: 'ok' }));
   return app;

@@ -13,7 +13,7 @@ Proyecto con una aplicación web, una API y servicios de infraestructura que se 
 | Hermes | Agente que escribe webs y mantiene su estado privado | Panel en `https://hermes.${DOMAIN}` |
 | Traefik + socket-proxy | HTTPS, enrutamiento y acceso restringido a la API Docker | Puertos 80 y 443 |
 
-La aplicación incluye login, logout, pantalla de cuenta y un endpoint de ejemplo para administradores. No incluye todavía funcionalidad de negocio, registro público, recuperación de contraseña, correo ni MFA.
+La aplicación incluye login, logout, pantalla de cuenta y un endpoint de ejemplo para administradores. Incluye Finanzas → Growth para consultar posiciones de Interactive Brokers una vez configurado el Gateway (ver [configuración](docs/interactive-brokers.md)). No incluye registro público, recuperación de contraseña, correo ni MFA.
 
 Hay **dos nginx distintos**: el público sirve archivos compartidos con Hermes; el de la app sirve la SPA compilada. Hermes no monta el código ni los archivos del frontend.
 

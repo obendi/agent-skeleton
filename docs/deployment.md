@@ -116,3 +116,7 @@ Hermes no tiene un healthcheck definido: revisar sus logs y el acceso autenticad
 - PostgreSQL, nginx y API no tienen puertos directos publicados en producción.
 
 `--wait` comprueba salud/estado de contenedores, no DNS, certificados ni el flujo completo de login. Cambiar `DOMAIN` requiere reconstruir el frontend, que incorpora el origen de API durante el build, y actualizar el origen permitido del backend.
+
+## Opcional: Interactive Brokers
+
+Para Finanzas → Growth, seguir la [guía del Gateway en Docker](../docker-compose/ibkr/README.md). Incluye el navegador remoto para autenticar en un VPS sin escritorio. Después de activarlo, usar también `docker-compose/api/ibkr.override.yml` en los comandos de despliegue de API.

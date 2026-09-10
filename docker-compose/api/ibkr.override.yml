@@ -1,0 +1,11 @@
+# Apply alongside docker-compose.yml after starting the IBKR project.
+services:
+  api:
+    environment:
+      IBKR_GATEWAY_URL: http://ibkr:8080/v1/api
+    networks:
+      - portfolio
+networks:
+  portfolio:
+    external: true
+    name: ibkr-portfolio

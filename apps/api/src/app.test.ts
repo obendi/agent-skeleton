@@ -83,3 +83,16 @@ test('one-hop proxy uses the nearest forwarded address, not an attacker supplied
   assert.equal((await app.inject({ method: 'POST', url: '/auth/login', headers: { ...headers, 'x-forwarded-for': '6.6.6.99, 203.0.113.1' }, payload: { email: 'missing@example.com', password } })).statusCode, 429);
   assert.equal((await app.inject({ method: 'POST', url: '/auth/login', headers: { ...headers, 'x-forwarded-for': '203.0.113.2' }, payload: { email: 'missing@example.com', password } })).statusCode, 401);
 });
+
+test('finance requires a session and never shares the owner portfolio with another user', async t => {
+  const { app, login } = await fixture(); t.after(() => app.close());
+  assert.equal((await app.inject('/finance/growth')).statusCode, 401);
+  const auth = String((await login()).headers['set-cookie']).split(';')[0];
+  assert.deepEqual((await app.inject({ url: '/finance/growth', headers: { cookie: auth } })).json(), { status: 'not_configured' });
+  const other = await buildApp({ ...config({ DATABASE_URL: 'unused', NODE_ENV: 'test' }), IBKR_OWNER_USER_ID: '018f0000-0000-4000-8000-000000000002' }, {
+    async getSession() { return { id: '018f0000-0000-4000-8000-000000000001', email: 'other@example.com', passwordHash: '', role: 'admin' }; },
+    async findUser() { return undefined; }, async createSession() {}, async deleteSession() {},
+  });
+  t.after(() => other.close());
+  assert.equal((await other.inject({ url: '/finance/growth', headers: { cookie: `session=${'a'.repeat(43)}` } })).statusCode, 403);
+});
