@@ -20,6 +20,8 @@ try {
       await tx`GRANT USAGE ON SCHEMA public TO webapp_app`;
       await tx`GRANT SELECT ON users TO webapp_app`;
       await tx`GRANT SELECT, INSERT, DELETE ON sessions TO webapp_app`;
+      await tx`GRANT SELECT, INSERT, UPDATE ON growth_settings TO webapp_app`;
+      await tx`GRANT SELECT, INSERT ON growth_orders TO webapp_app`;
     }
   });
 } finally { await sql.end(); }

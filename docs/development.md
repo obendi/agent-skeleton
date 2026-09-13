@@ -97,3 +97,13 @@ La primera migración crea `users` y `sessions`. El modelo Drizzle está en `app
 Las escrituras requieren `Origin` igual a `APP_ORIGIN` y `X-Requested-With: webapp`, también desde clientes CLI. El frontend ya envía esas cabeceras y usa `credentials: include`. No existe un contrato OpenAPI generado ni autenticación específica para integraciones externas.
 
 Para detener la base local: `docker compose -f compose.dev.yml stop`. No añadir `-v` a un `down` si se quieren conservar los datos.
+
+## Órdenes de Growth
+
+Aplicar `npm run db:migrate` antes de arrancar la nueva API. La migración `0002_growth.sql` añade el total de cartera por usuario y sus órdenes; el migrador concede los permisos al rol `webapp_app`.
+
+- `GET /finance/growth/orders`: total guardado y órdenes del usuario autenticado.
+- `POST /finance/growth/settings`: guarda `{ portfolioEuros }`, positivo y con hasta dos decimales.
+- `POST /finance/growth/orders`: recibe `{ ticker, percentage, entryPrice }`. El servidor calcula la cantidad entera redondeando hacia abajo y el stop loss al 95 % de la entrada. El porcentaje admite hasta dos decimales y la entrada hasta cuatro.
+
+Los precios se expresan en euros, sin conversión de divisas. Las órdenes son registros locales y no se transmiten al broker. Cada orden conserva el total de cartera usado en su cálculo; modificar el total no recalcula órdenes existentes. No se descuentan comisiones ni se reserva saldo entre órdenes.

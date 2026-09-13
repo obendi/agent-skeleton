@@ -3,14 +3,20 @@ import assert from 'node:assert/strict';
 import { buildApp } from './app.js';
 import { config } from './config.js';
 import { digest, hashPassword } from './security.js';
-import type { Store, User, Session } from './store.js';
+import type { Store, User, Session, GrowthOrder } from './store.js';
 const origin = 'https://app.example.com';
 const headers = { origin, 'x-requested-with': 'webapp' };
 const password = 'a-long-test-password';
 async function fixture(proxyHops = 0) {
   const user: User = { id: '018f0000-0000-4000-8000-000000000001', email: 'user@example.com', passwordHash: await hashPassword(password), role: 'user' };
   const sessions = new Map<string, Session>();
+  const settings = new Map<string, { portfolioEuros: number }>();
+  const orders: GrowthOrder[] = [];
   const store: Store = {
+    async getGrowthSettings(id) { return settings.get(id); },
+    async saveGrowthSettings(id, portfolioEuros) { settings.set(id, { portfolioEuros }); },
+    async listGrowthOrders(id) { return orders.filter(o => o.userId === id); },
+    async createGrowthOrder(order) { const result = { ...order, id: String(orders.length), createdAt: new Date() } as GrowthOrder; orders.push(result); return result; },
     async findUser(email) { return email === user.email ? user : undefined; },
     async getSession(hash) { const session = sessions.get(hash); return session && session.expiresAt > new Date() ? user : undefined; },
     async createSession(session) { sessions.set(session.tokenHash, session); },
@@ -92,7 +98,35 @@ test('finance requires a session and never shares the owner portfolio with anoth
   const other = await buildApp({ ...config({ DATABASE_URL: 'unused', NODE_ENV: 'test' }), IBKR_OWNER_USER_ID: '018f0000-0000-4000-8000-000000000002' }, {
     async getSession() { return { id: '018f0000-0000-4000-8000-000000000001', email: 'other@example.com', passwordHash: '', role: 'admin' }; },
     async findUser() { return undefined; }, async createSession() {}, async deleteSession() {},
+    async getGrowthSettings() { return undefined; }, async saveGrowthSettings() {}, async listGrowthOrders() { return []; }, async createGrowthOrder() { throw new Error('unused'); },
   });
   t.after(() => other.close());
   assert.equal((await other.inject({ url: '/finance/growth', headers: { cookie: `session=${'a'.repeat(43)}` } })).statusCode, 403);
+});
+
+test('growth stores settings and calculates immutable orders with validation and user isolation', async t => {
+  const { app, login, user } = await fixture(); t.after(() => app.close());
+  assert.equal((await app.inject('/finance/growth/orders')).statusCode, 401);
+  const cookie = String((await login()).headers['set-cookie']).split(';')[0];
+  const post = (url: string, payload: unknown) => app.inject({ method: 'POST', url, headers: { ...headers, cookie }, payload: payload as Record<string, unknown> });
+  const list = () => app.inject({ url: '/finance/growth/orders', headers: { cookie } });
+  const order = { ticker: ' aapl ', percentage: 15, entryPrice: 123.45 };
+  assert.equal((await post('/finance/growth/orders', order)).statusCode, 400);
+  for (const portfolioEuros of [0, -1, 1.001, '10000']) assert.equal((await post('/finance/growth/settings', { portfolioEuros })).statusCode, 400);
+  assert.equal((await post('/finance/growth/settings', { portfolioEuros: 10000 })).statusCode, 200);
+  const result = await post('/finance/growth/orders', order);
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.json().ticker, 'AAPL');
+  assert.equal(result.json().quantity, 12);
+  assert.equal(result.json().stopLoss, 117.2775);
+  for (const invalid of [{ percentage: 0 }, { percentage: 101 }, { entryPrice: 0 }, { entryPrice: 0.00001 }, { ticker: '' }, { quantity: 100 }, { entryPrice: 100000 }]) {
+    assert.equal((await post('/finance/growth/orders', { ...order, ...invalid })).statusCode, 400);
+  }
+  await post('/finance/growth/settings', { portfolioEuros: 20000 });
+  assert.equal((await list()).json().orders[0].portfolioEuros, 10000);
+  assert.equal((await list()).json().portfolioEuros, 20000);
+  await post('/finance/growth/settings', { portfolioEuros: 0.30 });
+  assert.equal((await post('/finance/growth/orders', { ticker: 'TEST', percentage: 100, entryPrice: 0.1 })).json().quantity, 3);
+  user.id = '018f0000-0000-4000-8000-000000000002';
+  assert.deepEqual((await list()).json(), { portfolioEuros: null, orders: [] });
 });

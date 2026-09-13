@@ -64,6 +64,29 @@ export async function buildApp(config: Config, store: Store) {
     reply.clearCookie(cookieName, cookieOptions);
     return reply.code(204).send();
   });
+  app.get('/finance/growth/orders', async req => ({
+    portfolioEuros: (await store.getGrowthSettings(req.user!.id))?.portfolioEuros ?? null,
+    orders: await store.listGrowthOrders(req.user!.id),
+  }));
+  app.post('/finance/growth/settings', async req => {
+    const { portfolioEuros } = z.object({ portfolioEuros: z.number().positive().max(1_000_000_000).multipleOf(0.01) }).strict().parse(req.body);
+    await store.saveGrowthSettings(req.user!.id, portfolioEuros);
+    return { portfolioEuros };
+  });
+  app.post('/finance/growth/orders', async (req, reply) => {
+    const body = z.object({
+      ticker: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9.\-]{0,19}$/),
+      percentage: z.number().positive().max(100).multipleOf(0.01),
+      entryPrice: z.number().min(0.0001).max(1_000_000_000).multipleOf(0.0001),
+    }).strict().parse(req.body);
+    const settings = await store.getGrowthSettings(req.user!.id);
+    if (!settings) return reply.code(400).send({ message: 'Guarda primero el total de tu cartera.' });
+    // Integer units avoid floating point rounding at whole-share boundaries.
+    const quantity = Number(BigInt(Math.round(settings.portfolioEuros * 100)) * BigInt(Math.round(body.percentage * 100)) / (100n * BigInt(Math.round(body.entryPrice * 10000))));
+    if (quantity < 1 || quantity > 2_147_483_647) return reply.code(400).send({ message: 'La cantidad debe estar entre 1 y 2.147.483.647 acciones. Ajusta el porcentaje o el precio de entrada.' });
+    const order = await store.createGrowthOrder({ ...body, userId: req.user!.id, portfolioEuros: settings.portfolioEuros, quantity, stopLoss: Math.round(body.entryPrice * 10000) * 95 / 1_000_000 });
+    return reply.code(201).send(order);
+  });
   app.get('/finance/growth', async (req, reply) => {
     if (!config.IBKR_OWNER_USER_ID) return { status: 'not_configured' };
     if (req.user!.id !== config.IBKR_OWNER_USER_ID) return reply.code(403).send({ message: 'Esta cartera no está vinculada a tu usuario' });

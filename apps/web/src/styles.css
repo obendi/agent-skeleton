@@ -31,3 +31,14 @@ th, td { text-align: right; padding: 18px 20px; border-bottom: 1px solid #eaf0f7
 th { background: #f8fafc; color: #52647a; font-size: 12px; font-weight: 500; }
 th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
 @media(max-width: 900px) { .private-app { grid-template-columns: 1fr; } .private-nav { gap: 20px; padding: 20px; } .private-nav nav { display: flex; align-items: center; flex-wrap: wrap; } .private-nav nav p { padding: 12px; }  .growth-page { padding: 28px 20px; } .broker-card { flex-wrap: wrap; } .broker-status { margin-left: 0; } .positions-toolbar { flex-direction: column; align-items: stretch; } }
+
+.order-panel { margin-top: 28px; padding: 24px; border: 1px solid #dce4ed; border-radius: 12px; background: white; }
+.order-panel h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.portfolio-form { display: flex; gap: 16px; align-items: end; margin: 24px 0; }
+.order-panel label { display: grid; gap: 8px; font-size: 14px; font-weight: 500; }
+.order-fields, .order-preview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.order-preview { margin: 20px 0; background: #f5f8fc; padding: 20px; border-radius: 8px; }
+.order-preview dt { font-size: 13px; color: #586579; }
+.order-preview dd { font-size: 22px; font-weight: 600; margin-top: 6px; overflow-wrap: anywhere; }
+.order-panel fieldset:disabled { opacity: .6; }
+@media(max-width: 700px) { .order-fields, .order-preview { grid-template-columns: 1fr; } .portfolio-form { align-items: stretch; flex-direction: column; } .order-panel { padding: 18px; } }
